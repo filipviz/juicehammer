@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -111,6 +112,10 @@ func buildContributorsList() {
 		after = mems[len(mems)-1].User.ID
 	}
 
+	// Sort and compact the contributors list
+	slices.Sort(contributors)
+	contributors = slices.Compact(contributors)
+
 	log.Printf("Built contributors list with %d entries: %v\n", len(contributors), contributors)
 }
 
@@ -124,6 +129,7 @@ func userJoins(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 		sus = true
 		msg = fmt.Sprintf("User <@%s> joined with a suspicious username (close to %s). Muting until <t:%d>.", m.User.Username, match, muteTime.Unix())
 		log.Println(msg)
+		goto Mute
 	}
 
 	if m.Nick != "" {
@@ -134,6 +140,7 @@ func userJoins(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 		}
 	}
 
+Mute:
 	if sus {
 		if _, err := s.ChannelMessageSend(OPERATIONS_CHANNEL_ID, msg); err != nil {
 			log.Printf("Error sending message to operations channel: %s\n", err)
