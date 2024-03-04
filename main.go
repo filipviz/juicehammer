@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"log"
 	"os"
 	"os/signal"
@@ -186,11 +187,11 @@ func checkSpam(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if len(compactMsgs) < len(r.msgs) {
 				// So we mute them
 				muteTime := time.Now().Add(1 * time.Hour)
-				muteMsg := fmt.Sprintf("%s sent %d messages in the last 2 minutes. Muting until <t:%d>. In channels: ", m.Author.Mention(), r.count, muteTime.Unix())
+				muteMsg := fmt.Sprintf("Muting %s until <t:%d> for sending %d messages in the last 2 minutes in channels:", m.Author.Mention(), muteTime.Unix(), r.count)
 				for _, c := range slices.Compact(r.channelIds) {
-					muteMsg += fmt.Sprintf("<#%s> ", c)
+					muteMsg += fmt.Sprintf(" <#%s>", c)
 				}
-				muteMsg += ". Most recent content: " + r.msgs[len(r.msgs)-1]
+				muteMsg += ". Most recent content: \n> " + r.msgs[len(r.msgs)-1]
 				muteMember(m.Author.ID, muteMsg, muteTime)
 			}
 		}
@@ -238,6 +239,9 @@ func nickChange(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 
 // Mute a member and send a message to the operations channel.
 func muteMember(userId string, muteMsg string, until time.Time) {
+	// Sanitize the message to prevent XSS within message
+	muteMsg = template.JSEscapeString(muteMsg)
+
 	if _, err := s.ChannelMessageSend(operationsChannelId, muteMsg); err != nil {
 		log.Printf("Error sending message '%s' to operations channel: %s\n", muteMsg, err)
 	}
