@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"html/template"
 	"log"
 	"os"
 	"os/signal"
@@ -239,9 +238,6 @@ func nickChange(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 
 // Mute a member and send a message to the operations channel.
 func muteMember(userId string, muteMsg string, until time.Time) {
-	// Sanitize the message to prevent XSS within message
-	muteMsg = template.JSEscapeString(muteMsg)
-
 	if _, err := s.ChannelMessageSend(operationsChannelId, muteMsg); err != nil {
 		log.Printf("Error sending message '%s' to operations channel: %s\n", muteMsg, err)
 	}
