@@ -68,7 +68,7 @@ func main() {
 }
 
 var contributors []string // Slice of suspicious words to check for in usernames
-var susWords = []string{"support", "juicebox", "announcements", "airdrop", "admin", "giveaway"}
+var susWords = []string{"support", "juicebox", "announcement", "airdrop", "admin", "giveaway", "📢", "📣"}
 
 // Build a slice of contributor usernames and nicknames to check new users against
 func buildContributorsList() {
@@ -205,11 +205,19 @@ func checkSpam(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 }
 
-// When a user joins, check if their nickname is suspicious, and mute them if it is.
+// When a user joins, check if their username or nickname is suspicious, and mute them if it is.
 func userJoins(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
+	muteTime := time.Now().Add(24 * time.Hour)
+
 	if is, match := isSus(m.User.Username); is {
-		muteTime := time.Now().Add(24 * time.Hour)
 		muteMsg := fmt.Sprintf("%s joined with a suspicious username ('%s', close to '%s'). Muting until <t:%d>.", m.User.Mention(), m.User.Username, match, muteTime.Unix())
+		muteMember(m.User.ID, muteMsg, muteTime)
+		return
+	}
+
+	// I think this is needed to catch users who join with suspicious "screen names". Need to check Discord API.
+	if is, match := isSus(m.Nick); is {
+		muteMsg := fmt.Sprintf("%s joined with a suspicious nickname ('%s', close to '%s'). Muting until <t:%d>.", m.User.Mention(), m.Nick, match, muteTime.Unix())
 		muteMember(m.User.ID, muteMsg, muteTime)
 	}
 }
