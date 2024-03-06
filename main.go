@@ -57,7 +57,7 @@ func main() {
 
 	buildContributorsList()
 	s.AddHandler(userJoins)
-	s.AddHandler(nickChange)
+	s.AddHandler(memberUpdate)
 	s.AddHandler(checkSpam)
 	log.Println("Now monitoring the server.")
 
@@ -205,25 +205,30 @@ func checkSpam(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 }
 
-// When a user joins, check if their username or nickname is suspicious, and mute them if it is.
+// When a user joins, check if their username, nickname, or global name is suspicious, and mute them if it is.
 func userJoins(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
-	muteTime := time.Now().Add(24 * time.Hour)
-
-	if is, match := isSus(m.User.Username); is {
-		muteMsg := fmt.Sprintf("%s joined with a suspicious username ('%s', close to '%s'). Muting until <t:%d>.", m.User.Mention(), m.User.Username, match, muteTime.Unix())
-		muteMember(m.User.ID, muteMsg, muteTime)
-		return
+	toCheck := map[string]string{
+		"username":    m.User.Username,
+		"global name": m.User.GlobalName,
+		"nickname":    m.Nick,
 	}
 
-	// I think this is needed to catch users who join with suspicious "screen names". Need to check Discord API.
-	if is, match := isSus(m.Nick); is {
-		muteMsg := fmt.Sprintf("%s joined with a suspicious nickname ('%s', close to '%s'). Muting until <t:%d>.", m.User.Mention(), m.Nick, match, muteTime.Unix())
-		muteMember(m.User.ID, muteMsg, muteTime)
+	for k, v := range toCheck {
+		if v == "" {
+			continue
+		}
+
+		if is, match := isSus(v); is {
+			muteTime := time.Now().Add(24 * time.Hour)
+			muteMsg := fmt.Sprintf("%s joined with a suspicious %s ('%s', close to '%s'). Muting until <t:%d>.", m.User.Mention(), k, v, match, muteTime.Unix())
+			muteMember(m.User.ID, muteMsg, muteTime)
+			return
+		}
 	}
 }
 
-// When a user changes their nickname, check if it's suspicious and mute them if it is.
-func nickChange(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
+// When a user is updated, check if their username, global name, or nickname is suspicious and mute them if it is.
+func memberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 	// If the user has a contributor, admin, or alumni role, don't check their nickname
 	for _, r := range m.Roles {
 		if r == contributorRoleId || r == adminRoleId || r == alumniRoleId {
@@ -231,16 +236,23 @@ func nickChange(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 		}
 	}
 
-	// If the user has no nickname or didn't change their nickname, return.
-	if m.Nick == "" || m.BeforeUpdate.Nick == m.Nick {
-		return
+	toCheck := map[string]string{
+		"username":    m.User.Username,
+		"global name": m.User.GlobalName,
+		"nickname":    m.Nick,
 	}
 
-	// If the user's nickname is suspicious, mute them for 24 hours.
-	if is, match := isSus(m.Nick); is {
-		muteTime := time.Now().Add(24 * time.Hour)
-		muteMsg := fmt.Sprintf("%s switched to a suspicious nickname ('%s', close to '%s'). Muting until <t:%d>.", m.User.Mention(), m.Nick, match, muteTime.Unix())
-		muteMember(m.User.ID, muteMsg, muteTime)
+	for k, v := range toCheck {
+		if v == "" {
+			continue
+		}
+
+		if is, match := isSus(v); is {
+			muteTime := time.Now().Add(24 * time.Hour)
+			muteMsg := fmt.Sprintf("%s switched to a suspicious %s ('%s', close to '%s'). Muting until <t:%d>.", m.User.Mention(), k, v, match, muteTime.Unix())
+			muteMember(m.User.ID, muteMsg, muteTime)
+			return
+		}
 	}
 }
 
