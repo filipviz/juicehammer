@@ -67,8 +67,7 @@ func main() {
 	log.Println("Shutting down...")
 }
 
-var contributors []string // Slice of suspicious words to check for in usernames
-var susWords = []string{"support", "juicebox", "announcement", "airdrop", "admin", "giveaway", "📢", "📣"}
+var contributors []string // Slice of contributor usernames/global names/nicknames to check for (to prevent impersonation)
 
 // Build a slice of contributor usernames and nicknames to check new users against
 func buildContributorsList() {
@@ -93,12 +92,16 @@ func buildContributorsList() {
 				if r == contributorRoleId || r == adminRoleId || r == alumniRoleId {
 					username := strings.ToLower(mem.User.Username)
 					nick := strings.ToLower(mem.Nick)
+					global := strings.ToLower(mem.User.GlobalName)
 
 					if username != "" {
 						contributors = append(contributors, username)
 					}
 					if nick != "" {
 						contributors = append(contributors, nick)
+					}
+					if global != "" {
+						contributors = append(contributors, global)
 					}
 
 					continue memLoop
@@ -115,7 +118,7 @@ func buildContributorsList() {
 		after = mems[len(mems)-1].User.ID
 	}
 
-	// Sort and compact the contributors list
+	// Sort and compact the contributors list to remove duplicates
 	slices.Sort(contributors)
 	contributors = slices.Compact(contributors)
 
@@ -229,6 +232,18 @@ func userJoins(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 
 // When a user is updated, check if their username, global name, or nickname is suspicious and mute them if it is.
 func memberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
+	// If the member is already muted, skip.
+	if m.Mute {
+		return
+	}
+
+	// If the member did not change any of their names, skip.
+	if m.BeforeUpdate.Nick == m.Nick &&
+		m.BeforeUpdate.User.GlobalName == m.User.GlobalName &&
+		m.BeforeUpdate.User.Username == m.User.Username {
+		return
+	}
+
 	// If the user has a contributor, admin, or alumni role, don't check their nickname
 	for _, r := range m.Roles {
 		if r == contributorRoleId || r == adminRoleId || r == alumniRoleId {
@@ -270,9 +285,19 @@ func muteMember(userId string, muteMsg string, until time.Time) {
 	log.Printf("Muted user %s with message %s until %s\n", userId, muteMsg, until)
 }
 
+var susWords = []string{"support", "juicebox", "announcement", "airdrop", "admin", "giveaway"} // A list of suspicious words to check for
+var containsWords = []string{"📢", "📣"}                                                         // A list of emojis to check for (only if the names contain - they are too short for meaningful levenshtein distance calculations)
+
 // Checks whether the given string is suspicious and what it matches (both suspicious words and contributor names)
 func isSus(s string) (is bool, match string) {
 	s = strings.ToLower(s)
+
+	// Check if the string contains a suspicious emoji/word
+	for _, w := range containsWords {
+		if strings.Contains(s, w) {
+			return true, w
+		}
+	}
 
 	// Check against suspicious words with a levenshtein distance of 2
 	for _, w := range susWords {
