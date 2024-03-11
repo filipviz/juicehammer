@@ -78,7 +78,7 @@ func buildContributorsList() {
 
 	contributors = make([]string, 0)
 
-	// Add nicknames and usernames for users with contributor, admin, or alumni roles to the map
+	// Add nicknames and usernames for users with contributor or admin roles to the map
 	var after string
 	for {
 		mems, err := s.GuildMembers(juiceboxGuildId, after, 1000)
@@ -89,7 +89,7 @@ func buildContributorsList() {
 	memLoop:
 		for _, mem := range mems {
 			for _, r := range mem.Roles {
-				if r == contributorRoleId || r == adminRoleId || r == alumniRoleId {
+				if r == contributorRoleId || r == adminRoleId {
 					username := strings.ToLower(mem.User.Username)
 					nick := strings.ToLower(mem.Nick)
 					global := strings.ToLower(mem.User.GlobalName)
@@ -285,9 +285,9 @@ func muteMember(userId string, muteMsg string, until time.Time) {
 	log.Printf("Muted user %s with message %s until %s\n", userId, muteMsg, until)
 }
 
-var susWords = []string{"support", "juicebox", "announcement", "airdrop", "admin", "giveaway", "opensea", "uniswap"} // A list of suspicious words to check for
+var susWords = []string{"support", "juicebox", "announcement", "airdrop", "admin", "giveaway", "opensea", "uniswap", "reward"} // A list of suspicious words to check for
 
-var containsWords = []string{"📢", "📣"} // A list of emojis to check for (only if the names contain - they are too short for meaningful levenshtein distance calculations)
+var containsWords = []string{"📢", "📣", "📡"} // A list of emojis/words to check for (only if the names contain - they are too short for meaningful levenshtein distance calculations)
 
 // Checks whether the given string is suspicious and what it matches (both suspicious words and contributor names)
 func isSus(toCheck string) (is bool, match string) {
@@ -303,14 +303,14 @@ func isSus(toCheck string) (is bool, match string) {
 
 	// Check against suspicious words with a levenshtein distance of 2
 	for _, w := range susWords {
-		if strings.Contains(norm, w) || levenshtein(norm, w) <= 2 {
+		if strings.Contains(norm, w) || (len(w) > 4 && levenshtein(norm, w) <= 2) {
 			return true, w
 		}
 	}
 
 	// Check against contributor names with a levenshtein distance of 1
 	for _, w := range contributors {
-		if strings.Contains(norm, w) || levenshtein(norm, w) <= 1 {
+		if strings.Contains(norm, w) || (len(w) > 4 && levenshtein(norm, w) <= 1) {
 			return true, w
 		}
 	}
