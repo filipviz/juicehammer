@@ -238,7 +238,8 @@ func memberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 	}
 
 	// If the member did not change any of their names, skip.
-	if m.BeforeUpdate.Nick == m.Nick &&
+	if m.BeforeUpdate != nil &&
+		m.BeforeUpdate.Nick == m.Nick &&
 		m.BeforeUpdate.User.GlobalName == m.User.GlobalName &&
 		m.BeforeUpdate.User.Username == m.User.Username {
 		return
