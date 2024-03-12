@@ -181,8 +181,8 @@ func checkSpam(s *discordgo.Session, m *discordgo.MessageCreate) {
 			spamTracker.Unlock()
 		}()
 	} else {
-		// If the user has sent more than 3 messages in the past 2 minutes, investigate further
-		if len(r.msgs) > 3 {
+		// If the user has sent more than 2 messages in the past 2 minutes, investigate further
+		if len(r.msgs) > 2 {
 			slices.Sort(r.msgs)
 			compactMsgs := slices.Compact(r.msgs)
 			// If the compact slice is shorter than the original, the user has sent the same message multiple times
@@ -265,7 +265,7 @@ func memberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 
 		if is, match := isSus(v); is {
 			muteTime := time.Now().Add(24 * time.Hour)
-			muteMsg := fmt.Sprintf("%s switched to a suspicious %s ('%s', close to '%s'). Muting until <t:%d>.", m.User.Mention(), k, v, match, muteTime.Unix())
+			muteMsg := fmt.Sprintf("%s switched to a suspicious %s ('%s', matches '%s'). Muting until <t:%d>.", m.User.Mention(), k, v, match, muteTime.Unix())
 			muteMember(m.User.ID, muteMsg, muteTime)
 			return
 		}
@@ -286,7 +286,7 @@ func muteMember(userId string, muteMsg string, until time.Time) {
 	log.Printf("Muted user %s with message %s until %s\n", userId, muteMsg, until)
 }
 
-var susWords = []string{"support", "juicebox", "announcement", "airdrop", "admin", "giveaway", "opensea", "uniswap", "reward"} // A list of suspicious words to check for
+var susWords = []string{"support", "juicebox", "announcement", "airdrop", "admin", "giveaway", "opensea", "uniswap", "reward", "ticket", "metamask"} // A list of suspicious words to check for
 
 var containsWords = []string{"📢", "📣", "📡"} // A list of emojis/words to check for (only if the names contain - they are too short for meaningful levenshtein distance calculations)
 

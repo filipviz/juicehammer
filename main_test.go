@@ -19,6 +19,7 @@ func TestIsSus(t *testing.T) {
 		{"HelloANNOUNCEMENT", true},
 		{"Airdrep🔥", true},
 		{"Uniswep", true},
+		{"ANNOUCENMENT", true},
 	}
 
 	for _, test := range tests {
