@@ -304,14 +304,14 @@ func isSus(toCheck string) (is bool, match string) {
 
 	// Check against suspicious words with a levenshtein distance of 2
 	for _, w := range susWords {
-		if strings.Contains(norm, w) || (len(w) > 4 && levenshtein(norm, w) <= len(w)/4) {
+		if strings.Contains(norm, w) || (len(norm) > 4 && levenshtein(norm, w) <= len(norm)/4) {
 			return true, w
 		}
 	}
 
 	// Check against contributor names with a levenshtein distance of 2
 	for _, w := range contributors {
-		if len(w) > 4 && levenshtein(norm, w) <= len(w)/4 {
+		if len(norm) > 4 && levenshtein(norm, w) <= len(norm)/4 {
 			return true, w
 		}
 	}
