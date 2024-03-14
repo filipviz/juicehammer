@@ -1,4 +1,4 @@
-module jvicehammer
+module juicehammer
 
 go 1.22.1
 
