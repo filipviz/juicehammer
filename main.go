@@ -2,6 +2,7 @@ package main
 
 import (
 	"juicehammer/names"
+	"juicehammer/pfp"
 	"log"
 	"os"
 	"os/signal"
@@ -42,10 +43,15 @@ func main() {
 	}
 	defer s.Close()
 
-	names.BuildContributorsList(s)
+	names.ParseContributors(s)
+	pfp.HashFolderImgs()
 
-	s.AddHandler(names.UserJoins)
-	s.AddHandler(names.MemberUpdate)
+	pfp.CheckAll(s)
+
+	log.Println("PFPs all checked.")
+
+	s.AddHandler(names.CheckNamesOnJoin)
+	s.AddHandler(names.CheckNamesOnUpdate)
 	s.AddHandler(names.CheckSpam)
 	log.Println("Now monitoring the server.")
 

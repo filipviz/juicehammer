@@ -4,6 +4,7 @@ package names
 import (
 	"fmt"
 	"juicehammer/juicebox"
+	"juicehammer/pfp"
 	"log"
 	"slices"
 	"strings"
@@ -17,7 +18,8 @@ import (
 var contributors []string // Slice of contributor usernames/global names/nicknames to check for (to prevent impersonation)
 
 // Build a slice of contributor usernames and nicknames to check new users against
-func BuildContributorsList(s *discordgo.Session) {
+// Also get contributor profile pictures to use in pfp.go
+func ParseContributors(s *discordgo.Session) {
 	if contributors != nil {
 		log.Println("buildContributorsList called more than once")
 		return
@@ -50,6 +52,9 @@ func BuildContributorsList(s *discordgo.Session) {
 					if global != "" {
 						contributors = append(contributors, global)
 					}
+
+					// Hash the contributor's PFP off the main thread
+					go pfp.ContributorPfp(mem.AvatarURL("256"), fmt.Sprintf("%s's profile picture", mem.Mention()))
 
 					continue memLoop
 				}
@@ -156,7 +161,7 @@ func CheckSpam(s *discordgo.Session, m *discordgo.MessageCreate) {
 }
 
 // When a user joins, check if their username, nickname, or global name is suspicious, and mute them if it is.
-func UserJoins(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
+func CheckNamesOnJoin(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	toCheck := map[string]string{
 		"username":    m.User.Username,
 		"global name": m.User.GlobalName,
@@ -178,7 +183,7 @@ func UserJoins(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 }
 
 // When a user is updated, check if their username, global name, or nickname is suspicious and mute them if it is.
-func MemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
+func CheckNamesOnUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 	// If the member is already muted, skip.
 	if m.Mute {
 		return
