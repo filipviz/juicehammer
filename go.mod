@@ -1,4 +1,4 @@
-module juicehammer
+module github.com/filipviz/juicehammer
 
 go 1.22.1
 

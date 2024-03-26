@@ -3,11 +3,12 @@ package juicebox
 
 import (
 	"fmt"
-	"juicehammer/names"
-	"juicehammer/pfp"
-	"juicehammer/spam"
 	"log"
 	"time"
+
+	"github.com/filipviz/juicehammer/names"
+	"github.com/filipviz/juicehammer/pfp"
+	"github.com/filipviz/juicehammer/spam"
 
 	"github.com/bwmarrin/discordgo"
 )

@@ -1,12 +1,13 @@
 package main
 
 import (
-	"juicehammer/juicebox"
-	"juicehammer/pfp"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/filipviz/juicehammer/juicebox"
+	"github.com/filipviz/juicehammer/pfp"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
