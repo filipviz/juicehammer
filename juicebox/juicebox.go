@@ -17,7 +17,6 @@ const (
 	JuiceboxGuildId     = "775859454780244028"
 	ContributorRoleId   = "865459358434590740"
 	AdminRoleId         = "864238986456989697"
-	AlumniRoleId        = "1091786430046552097"
 	OperationsChannelId = "889560116666441748"
 )
 
