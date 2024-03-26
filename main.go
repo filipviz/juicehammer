@@ -1,7 +1,7 @@
 package main
 
 import (
-	"juicehammer/names"
+	"juicehammer/juicebox"
 	"juicehammer/pfp"
 	"log"
 	"os"
@@ -43,18 +43,17 @@ func main() {
 	}
 	defer s.Close()
 
-	names.ParseContributors(s)
+	// Prepare lists to check against.
+	juicebox.ParseContributors(s)
 	pfp.HashFolderImgs()
 
-	pfp.CheckAll(s)
-
-	log.Println("PFPs all checked.")
-
-	s.AddHandler(names.CheckNamesOnJoin)
-	s.AddHandler(names.CheckNamesOnUpdate)
-	s.AddHandler(names.CheckSpam)
+	// Add handlers.
+	s.AddHandler(juicebox.ScreenOnJoin)
+	s.AddHandler(juicebox.ScreenOnUpdate)
+	s.AddHandler(juicebox.ScreenMessage)
 	log.Println("Now monitoring the server.")
 
+	// Wait for a signal to exit.
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 	<-ch

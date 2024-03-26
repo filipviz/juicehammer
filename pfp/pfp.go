@@ -9,7 +9,6 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
-	"juicehammer/juicebox"
 	"log"
 	"net/http"
 	"os"
@@ -22,17 +21,17 @@ import (
 	"github.com/corona10/goimagehash"
 )
 
-type KnownHash struct {
+type Hash struct {
 	hash        *goimagehash.ImageHash
 	description string
 }
 
-type KnownHashes struct {
+type HashSlice struct {
 	sync.RWMutex
-	hashes []KnownHash
+	hashes []Hash
 }
 
-var knownHashes KnownHashes = KnownHashes{hashes: make([]KnownHash, 0)}
+var monitoredHashes = HashSlice{hashes: make([]Hash, 0)}
 
 // Perceptually hash an image and add it to the list of known hashes
 func pHashImg(img io.ReadCloser, description string) error {
@@ -42,21 +41,21 @@ func pHashImg(img io.ReadCloser, description string) error {
 	if err != nil {
 		return err
 	}
-
 	hash, err := goimagehash.PerceptionHash(decoded)
 	if err != nil {
 		return err
 	}
 
-	knownHashes.Lock()
-	knownHashes.hashes = append(knownHashes.hashes, KnownHash{hash: hash, description: description})
-	knownHashes.Unlock()
+	monitoredHashes.Lock()
+	monitoredHashes.hashes = append(monitoredHashes.hashes, Hash{hash, description})
+	monitoredHashes.Unlock()
 
 	return nil
 }
 
 var imgDir = "images"
 
+// Hash all of the known suspicious images from the images directory.
 func HashFolderImgs() error {
 	subDirs, err := os.ReadDir(imgDir)
 	if err != nil {
@@ -64,7 +63,7 @@ func HashFolderImgs() error {
 	}
 
 	for _, subDir := range subDirs {
-		// Only read subdirs
+		// Skip files
 		if !subDir.IsDir() {
 			continue
 		}
@@ -93,7 +92,7 @@ func HashFolderImgs() error {
 	return nil
 }
 
-func ContributorPfp(url, description string) {
+func MonitorPfp(url, description string) {
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Printf("Error getting image: %v\n", err)
@@ -104,7 +103,9 @@ func ContributorPfp(url, description string) {
 	}
 }
 
-func checkPfp(mem *discordgo.Member) (suspicious bool, msg string, err error) {
+// Check whether a user's profile picture is suspicious.
+// Returns true if the profile picture is suspicious, along with a message describing the match.
+func PfpIsSuspicious(mem *discordgo.Member) (is bool, msg string, err error) {
 	avatarUrl := mem.AvatarURL("256")
 	if avatarUrl == "" {
 		return false, "", fmt.Errorf("avatar url is empty")
@@ -129,9 +130,9 @@ func checkPfp(mem *discordgo.Member) (suspicious bool, msg string, err error) {
 		return false, "", err
 	}
 
-	knownHashes.RLock()
-	defer knownHashes.RUnlock()
-	for _, knownHash := range knownHashes.hashes {
+	monitoredHashes.RLock()
+	defer monitoredHashes.RUnlock()
+	for _, knownHash := range monitoredHashes.hashes {
 		distance, err := knownHash.hash.Distance(hash)
 		if err != nil {
 			log.Printf("Error calculating distance for user %s: %v\n", mem.User.ID, err)
@@ -139,57 +140,11 @@ func checkPfp(mem *discordgo.Member) (suspicious bool, msg string, err error) {
 		}
 
 		if distance < 10 {
-			suspicious = true
+			is = true
 			msg = fmt.Sprintf("%s has a suspicious PFP. Matches '%s' with distance %d.\nLink: %s", mem.Mention(), knownHash.description, distance, avatarUrl)
+			break
 		}
 	}
 
 	return
-}
-
-func CheckAll(s *discordgo.Session) {
-	var after string
-	var wg sync.WaitGroup
-
-	for {
-		mems, err := s.GuildMembers(juicebox.JuiceboxGuildId, after, 1000)
-		if err != nil {
-			log.Fatalf("Error getting guild members: %s\n", err)
-		}
-
-	memLoop:
-		for _, mem := range mems {
-			// If the user is a contributor or admin, skip them
-			for _, r := range mem.Roles {
-				if r == juicebox.ContributorRoleId || r == juicebox.AdminRoleId {
-					continue memLoop
-				}
-			}
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				suspicious, msg, err := checkPfp(mem)
-
-				if err != nil {
-					log.Printf("Error checking PFP for user %s: %v\n", mem.User.ID, err)
-					return
-				}
-
-				if suspicious {
-					log.Println(msg + "\n")
-				}
-			}()
-		}
-
-		// If we get less than 1000 members, we're done
-		if len(mems) < 1000 {
-			break
-		}
-
-		// Update the after ID for the next iteration
-		after = mems[len(mems)-1].User.ID
-	}
-
-	wg.Wait()
 }

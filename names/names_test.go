@@ -23,7 +23,7 @@ func TestIsSus(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if got, _ := isSus(test.input); got != test.want {
+		if got, _ := NameIsSuspicious(test.input); got != test.want {
 			t.Errorf("IsSus(%q) = %v", test.input, got)
 		}
 	}
