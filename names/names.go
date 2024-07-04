@@ -35,7 +35,7 @@ func MonitorName(mem *discordgo.Member) {
 var susWords = []string{"support", "juicebox", "announcement", "airdrop", "admin", "giveaway", "opensea", "uniswap", "reward", "ticket", "metamask", "help", "kathryn"}
 
 // A list of known emojis/words to check for (only if the names contain them - they are too short for meaningful levenshtein distance calculations)
-var containsWords = []string{"📢", "📣", "📡"}
+var containsWords = []string{"📢", "📣", "📡", "🎁"}
 
 // Checks whether the given string is suspicious and what it matches (both suspicious words and contributor names)
 func NameIsSuspicious(name string) (is bool, match string) {
