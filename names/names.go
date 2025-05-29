@@ -7,6 +7,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/bwmarrin/discordgo"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+	"golang.org/x/text/unicode/norm"
 )
 
 // Slice of contributor usernames/global names/nicknames to check for (to prevent impersonation)
@@ -20,13 +23,13 @@ func MonitorName(mem *discordgo.Member) {
 	monitored.Lock()
 	defer monitored.Unlock()
 
-	if username := strings.ToLower(mem.User.Username); username != "" {
+	if username := normalizeString(mem.User.Username); username != "" {
 		monitored.names = append(monitored.names, username)
 	}
-	if nick := strings.ToLower(mem.Nick); nick != "" {
+	if nick := normalizeString(mem.Nick); nick != "" {
 		monitored.names = append(monitored.names, nick)
 	}
-	if global := strings.ToLower(mem.User.GlobalName); global != "" {
+	if global := normalizeString(mem.User.GlobalName); global != "" {
 		monitored.names = append(monitored.names, global)
 	}
 }
@@ -37,10 +40,15 @@ var susWords = []string{"support", "juicebox", "announcement", "airdrop", "admin
 // A list of known emojis/words to check for (only if the names contain them - they are too short for meaningful levenshtein distance calculations)
 var containsWords = []string{"📢", "📣", "📡", "🎁"}
 
+// Normalizes a string by converting it to lowercase and applying NFKC normalization.
+func normalizeString(s string) string {
+	return norm.NFKC.String(cases.Lower(language.Und, cases.NoLower).String(s))
+}
+
 // Checks whether the given string is suspicious and what it matches (both suspicious words and contributor names)
 func NameIsSuspicious(name string) (is bool, match string) {
-	// Normalize to lower case
-	norm := strings.ToLower(name)
+	// Normalize the input name
+	norm := normalizeString(name)
 
 	// Check if the string contains a suspicious emoji/word
 	for _, w := range containsWords {
@@ -49,7 +57,7 @@ func NameIsSuspicious(name string) (is bool, match string) {
 		}
 	}
 
-	// Check against suspicious words with a levenshtein distance of 2
+	// Check against suspicious words with a levenshtein distance
 	for _, w := range susWords {
 		if strings.Contains(norm, w) || (len(norm) > 4 && levenshtein(norm, w) <= len(norm)/4) {
 			return true, w
@@ -58,8 +66,9 @@ func NameIsSuspicious(name string) (is bool, match string) {
 
 	monitored.RLock()
 	defer monitored.RUnlock()
-	// Check against contributor names with a levenshtein distance of 2
+	// Check against contributor names with a levenshtein distance
 	for _, w := range monitored.names {
+		// monitored names are already normalized
 		if len(norm) > 4 && levenshtein(norm, w) <= len(norm)/4 {
 			return true, w
 		}
@@ -86,9 +95,9 @@ func levenshtein(a, b string) int {
 		return 0
 	}
 
-	// Normalize the strings to lowercase runes
-	s1 := []rune(strings.ToLower(a))
-	s2 := []rune(strings.ToLower(b))
+	// Strings are already normalized and lowercased by the caller
+	s1 := []rune(a)
+	s2 := []rune(b)
 
 	// swap to save some memory O(min(a,b)) instead of O(a)
 	if len(s1) > len(s2) {

@@ -7,6 +7,7 @@ require (
 	github.com/corona10/goimagehash v1.1.0
 	github.com/joho/godotenv v1.5.1
 	golang.org/x/image v0.15.0
+	golang.org/x/text v0.14.0
 )
 
 require (

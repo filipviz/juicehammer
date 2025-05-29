@@ -20,6 +20,12 @@ func TestIsSus(t *testing.T) {
 		{"Airdrep🔥", true},
 		{"Uniswep", true},
 		{"ANNOUCENMENT", true},
+		// Test cases for Unicode normalization
+		{"𝓽𝓱𝓪𝓪𝓬𝓵𝓪𝓼𝓱𝓮𝓻", false}, // Should not match 'support'
+		{"ｓｕｐｐｏｒｔ", true},   // Full-width characters, should match 'support'
+		{"𝕒𝕚𝕣𝕕𝕣𝕠𝕡", true},     // Mathematical script, should match 'airdrop'
+		{"𝖌𝖎𝖛𝖊𝖆𝖜𝖆𝖞", true},   // Fraktur, should match 'giveaway'
+		{"ⓗⓔⓛⓟ", true},        // Circled letters, should match 'help'
 	}
 
 	for _, test := range tests {
