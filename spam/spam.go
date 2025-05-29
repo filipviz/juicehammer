@@ -11,64 +11,76 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// Holds recent message information for a user.
-type recentMsgs struct {
+const coolDownPeriod = 2 * time.Minute
+
+// Holds recent message information and activity timer for a user.
+type userSpamInfo struct {
 	channelIds []string
 	msgs       []string
+	timer      *time.Timer // Timer to clear this user's entry after coolDownPeriod of inactivity
 }
 
-// Map of user IDs to the number of messages they've sent in the last 100 seconds
+// Map of user IDs to their spam tracking information.
 var spamTracker = struct {
-	sync.RWMutex // Fine to have one lock for the whole struct since reads/writes are infrequent. At scale, would need to optimize.
-	recent       map[string]recentMsgs
-}{recent: make(map[string]recentMsgs)}
+	sync.RWMutex // Using RWMutex, IsSpam will use Lock for modifications.
+	users map[string]*userSpamInfo
+}{users: make(map[string]*userSpamInfo)}
 
-// Check if a message's creator has sent messages to many channels recently.
-// Returns whether the user is spamming and a list of the channels they've sent messages to (as a string).
-func IsSpam(m *discordgo.MessageCreate) (is bool, channels string) {
-	spamTracker.RLock()
-	r, ok := spamTracker.recent[m.Author.ID]
-	spamTracker.RUnlock()
+// IsSpam checks if a message constitutes spam based on recent activity.
+// It flags a user as spamming if they send more than 3 messages to more than 3 unique channels
+// within the coolDownPeriod. Each message resets the cooldown timer.
+func IsSpam(m *discordgo.MessageCreate) (is bool, channelsOutput string) {
+	spamTracker.Lock() // Acquire a full lock as we are likely modifying state
+	defer spamTracker.Unlock() // Ensure unlock happens on all return paths
 
-	// If not found, initialize the user's spam tracker
+	userInfo, ok := spamTracker.users[m.Author.ID]
 	if !ok {
-		spamTracker.Lock()
-		spamTracker.recent[m.Author.ID] = recentMsgs{
+		// New user
+		userInfo = &userSpamInfo{
 			channelIds: []string{m.ChannelID},
 			msgs:       []string{m.Content},
 		}
-		spamTracker.Unlock()
-
-		// After 2 minutes, clear the spam tracker for this user
-		go func() {
-			time.Sleep(2 * time.Minute)
+		// Assign the timer directly
+		userInfo.timer = time.AfterFunc(coolDownPeriod, func() {
+			// Callback for the end of the coolDownPeriod initiated by this timer.
 			spamTracker.Lock()
-			delete(spamTracker.recent, m.Author.ID)
+			delete(spamTracker.users, m.Author.ID)
 			spamTracker.Unlock()
-		}()
-	} else {
-		// If found, and there are more than 2 messages, investigate further.
-		if len(r.msgs) > 2 {
-			slices.Sort(r.channelIds)
-			channelIds := slices.Compact(r.channelIds)
+		})
+		spamTracker.users[m.Author.ID] = userInfo
+		return false, ""
+	}
 
-			// If the user has sent messages to more than 2 channels in the last 2 minutes, mute them.
-			if len(channelIds) > 2 {
-
-				var channels bytes.Buffer
-				for _, c := range slices.Compact(r.channelIds) {
-					channels.WriteString(fmt.Sprintf(" <#%s>", c))
-				}
-				return true, channels.String()
-			}
-		}
-
+	// Existing user - reset their inactivity timer
+	if userInfo.timer != nil {
+		userInfo.timer.Stop() // Stop the previous timer
+	}
+	userInfo.timer = time.AfterFunc(coolDownPeriod, func() {
+		// Re-initialize the callback.
 		spamTracker.Lock()
-		spamTracker.recent[m.Author.ID] = recentMsgs{
-			channelIds: append(r.channelIds, m.ChannelID),
-			msgs:       append(r.msgs, m.Content),
-		}
+		delete(spamTracker.users, m.Author.ID)
 		spamTracker.Unlock()
+	})
+
+	// Append current message's details
+	userInfo.channelIds = append(userInfo.channelIds, m.ChannelID)
+	userInfo.msgs = append(userInfo.msgs, m.Content)
+
+	// Check for spam - our heuristic is that sending 3+ messages to 3+ unique channels is probably spam.
+	if len(userInfo.msgs) > 3 {
+		// Create a copy to avoid modifying the original userInfo.channelIds
+		tempChannelIds := make([]string, len(userInfo.channelIds))
+		copy(tempChannelIds, userInfo.channelIds)
+		slices.Sort(tempChannelIds)
+		uniqueChannelIds := slices.Compact(tempChannelIds)
+
+		if len(uniqueChannelIds) > 3 {
+			var channelsBuffer bytes.Buffer
+			for _, c := range uniqueChannelIds {
+				channelsBuffer.WriteString(fmt.Sprintf(" <#%s>", c))
+			}
+			return true, channelsBuffer.String()
+		}
 	}
 
 	return false, ""
